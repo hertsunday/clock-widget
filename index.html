@@ -10,26 +10,25 @@
 <style>
   :root{
     --font-pixel: "Press Start 2P", "Courier New", monospace;
-    --card-w: 64px;
+    --card-w: 110px;
     --card-h: 68px;
-    --font-size: 2rem;
+    --font-size: 1.9rem;
+    --digit-gap: 0.15em;
+    --glyph-offset-x: 0.12em;
+    --glyph-offset-y: 0.12em;
 
     /* light theme: white digits on pink squares */
-    --bg: #FFE5EC;
     --card: #FFC2D1;
     --text: #2B0F1A;
-    --colon: #FF4B91;
-    --date: #FF758F;
+    --date: #FF4B91;
   }
 
   @media (prefers-color-scheme: dark) {
     :root{
       /* dark theme: dark squares with pink digits */
-      --bg: #1E0A15;
       --card: #4A1535;
       --text: #FFE5EC;
-      --colon: #FF007F;
-      --date: #F15BB5;
+      --date: #FF007F;
     }
   }
 
@@ -39,7 +38,8 @@
     margin: 0;
     padding: 0;
     height: 100%;
-    background: var(--bg);
+    background: transparent !important;
+    background-color: transparent !important;
     font-family: var(--font-pixel);
   }
 
@@ -58,6 +58,7 @@
   }
 
   .clock {
+    position: relative;
     display: flex;
     align-items: flex-end;
     gap: 10px;
@@ -72,11 +73,20 @@
   .group { display: flex; gap: 6px; }
 
   .colon {
-    color: var(--colon);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: var(--card-h);
+    color: var(--date);
     font-family: var(--font-pixel);
     font-size: 1.5rem;
     line-height: 1;
     user-select: none;
+  }
+
+  .colon span {
+    display: block;
+    transform: translate(var(--glyph-offset-x), var(--glyph-offset-y));
   }
 
   .flip {
@@ -128,25 +138,32 @@
     font-family: var(--font-pixel);
     font-size: var(--font-size);
     line-height: 1;
-    display: block;
-    text-align: center;
-    position: relative;
-    top: 0.08em;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: var(--digit-gap);
+    width: 100%;
+    height: 100%;
+    transform: translate(var(--glyph-offset-x), var(--glyph-offset-y));
   }
 
   .ampm {
+    position: absolute;
+    left: 100%;
+    bottom: 6px;
+    margin-left: 8px;
     font-family: var(--font-pixel);
     font-size: 1rem;
-    color: var(--colon);
+    color: var(--date);
     line-height: 1;
     user-select: none;
-    padding-bottom: 6px;
+    white-space: nowrap;
   }
 
   .date {
     font-family: var(--font-pixel);
-    font-size: 0.85rem;
-    letter-spacing: 0.04em;
+    font-size: 0.9rem;
+    letter-spacing: 0.03em;
     color: var(--date);
     user-select: none;
   }
@@ -165,10 +182,8 @@
   <div class="clock" id="clock">
     <div class="clock-row">
       <div class="group" id="hours"></div>
-      <div class="colon">:</div>
+      <div class="colon"><span>:</span></div>
       <div class="group" id="minutes"></div>
-      <!-- <div class="colon">:</div>
-      <div class="group" id="seconds"></div> -->
     </div>
     <div class="ampm" id="ampm">PM</div>
   </div>
@@ -180,59 +195,59 @@
 
   function pad(n){ return n.toString().padStart(2, '0'); }
 
-  function buildDigitCard(container){
+  function buildCell(container){
     const flip = document.createElement('div');
     flip.className = 'flip';
 
     const inner = document.createElement('div');
     inner.className = 'flip-inner';
 
-    const front = document.createElement('div');
-    front.className = 'face front';
-    const frontVal = document.createElement('span');
-    frontVal.className = 'val';
-    frontVal.textContent = '0';
-    front.appendChild(frontVal);
+    function makeFace(cls){
+      const face = document.createElement('div');
+      face.className = 'face ' + cls;
+      const val = document.createElement('span');
+      val.className = 'val';
+      const d1 = document.createElement('span');
+      const d2 = document.createElement('span');
+      d1.textContent = '0';
+      d2.textContent = '0';
+      val.appendChild(d1);
+      val.appendChild(d2);
+      face.appendChild(val);
+      return { face, d1, d2 };
+    }
 
-    const back = document.createElement('div');
-    back.className = 'face back';
-    const backVal = document.createElement('span');
-    backVal.className = 'val';
-    backVal.textContent = '0';
-    back.appendChild(backVal);
+    const front = makeFace('front');
+    const back = makeFace('back');
 
-    inner.appendChild(front);
-    inner.appendChild(back);
+    inner.appendChild(front.face);
+    inner.appendChild(back.face);
     flip.appendChild(inner);
     container.appendChild(flip);
 
-    return { flip, inner, frontVal, backVal, current: '0' };
+    return { flip, inner, front, back, current: '00' };
   }
 
-  function makeDigitPair(containerId){
-    const container = document.getElementById(containerId);
-    return [buildDigitCard(container), buildDigitCard(container)];
-  }
+  const hourCell = buildCell(document.getElementById('hours'));
+  const minuteCell = buildCell(document.getElementById('minutes'));
 
-  const hourDigits = makeDigitPair('hours');
-  const minuteDigits = makeDigitPair('minutes');
-  //const secondDigits = makeDigitPair('seconds');
+  function setDigit(cell, newVal){
+    if (cell.current === newVal) return;
 
-  function setDigit(digit, newVal){
-    if (digit.current === newVal) return;
+    cell.back.d1.textContent = newVal[0];
+    cell.back.d2.textContent = newVal[1];
 
-    digit.backVal.textContent = newVal;
-
-    digit.flip.classList.remove('flipping');
-    void digit.flip.offsetWidth; // reflow, restarts the CSS animation
-    digit.flip.classList.add('flipping');
+    cell.flip.classList.remove('flipping');
+    void cell.flip.offsetWidth; // reflow, restarts the CSS animation
+    cell.flip.classList.add('flipping');
 
     setTimeout(() => {
-      digit.frontVal.textContent = newVal;
-      digit.flip.classList.remove('flipping');
+      cell.front.d1.textContent = newVal[0];
+      cell.front.d2.textContent = newVal[1];
+      cell.flip.classList.remove('flipping');
     }, 500);
 
-    digit.current = newVal;
+    cell.current = newVal;
   }
 
   function updateClock(){
@@ -247,14 +262,9 @@
 
     const hh = pad(h);
     const mm = pad(now.getMinutes());
-    //const ss = pad(now.getSeconds());
 
-    setDigit(hourDigits[0], hh[0]);
-    setDigit(hourDigits[1], hh[1]);
-    setDigit(minuteDigits[0], mm[0]);
-    setDigit(minuteDigits[1], mm[1]);
-    //setDigit(secondDigits[0], ss[0]);
-    //setDigit(secondDigits[1], ss[1]);
+    setDigit(hourCell, hh);
+    setDigit(minuteCell, mm);
 
     const ampmEl = document.getElementById('ampm');
     ampmEl.style.display = USE_24H ? 'none' : 'block';
