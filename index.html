@@ -1,0 +1,272 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Pixel Clock</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --font-pixel: "Press Start 2P", "Courier New", monospace;
+    --card-w: 64px;
+    --card-h: 68px;
+    --font-size: 2rem;
+
+    /* light theme: white digits on pink squares */
+    --bg: #FFE5EC;
+    --card: #FFC2D1;
+    --text: #2B0F1A;
+    --colon: #FF4B91;
+    --date: #FF758F;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root{
+      /* dark theme: dark squares with pink digits */
+      --bg: #1E0A15;
+      --card: #4A1535;
+      --text: #FFE5EC;
+      --colon: #FF007F;
+      --date: #F15BB5;
+    }
+  }
+
+  * { box-sizing: border-box; }
+
+  html, body {
+    margin: 0;
+    padding: 0;
+    height: 100%;
+    background: var(--bg);
+    font-family: var(--font-pixel);
+  }
+
+  body {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .clock-wrap {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 16px;
+    padding: 24px;
+  }
+
+  .clock {
+    display: flex;
+    align-items: flex-end;
+    gap: 10px;
+  }
+
+  .clock-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .group { display: flex; gap: 6px; }
+
+  .colon {
+    color: var(--colon);
+    font-family: var(--font-pixel);
+    font-size: 1.5rem;
+    line-height: 1;
+    user-select: none;
+  }
+
+  .flip {
+    position: relative;
+    width: var(--card-w);
+    height: var(--card-h);
+    perspective: 400px;
+    user-select: none;
+  }
+
+  .flip-inner {
+    position: relative;
+    width: 100%;
+    height: 100%;
+    transform-style: preserve-3d;
+    transform: rotateX(0deg);
+    will-change: transform;
+  }
+
+  .flip.flipping .flip-inner {
+    animation: flipCard 0.5s ease-in-out forwards;
+  }
+
+  @keyframes flipCard {
+    0%   { transform: rotateX(0deg); }
+    100% { transform: rotateX(-180deg); }
+  }
+
+  .face {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    border-radius: 8px;
+    background: var(--card);
+    display: grid;
+    place-items: center;
+    color: var(--text);
+    backface-visibility: hidden;
+    transform: translateZ(0);
+  }
+
+  .face.back {
+    transform: rotateX(-180deg) translateZ(0);
+  }
+
+  .face .val {
+    font-family: var(--font-pixel);
+    font-size: var(--font-size);
+    line-height: 1;
+    display: block;
+    text-align: center;
+    position: relative;
+    top: 0.08em;
+  }
+
+  .ampm {
+    font-family: var(--font-pixel);
+    font-size: 1rem;
+    color: var(--colon);
+    line-height: 1;
+    user-select: none;
+    padding-bottom: 6px;
+  }
+
+  .date {
+    font-family: var(--font-pixel);
+    font-size: 0.85rem;
+    letter-spacing: 0.04em;
+    color: var(--date);
+    user-select: none;
+  }
+
+  @media (max-width: 480px) {
+    :root { --card-w: 44px; --card-h: 48px; --font-size: 1.35rem; }
+    .colon { font-size: 1rem; }
+    .ampm-badge { font-size: 0.42rem; left: 4px; bottom: 3px; }
+    .date { font-size: 0.5rem; }
+  }
+</style>
+</head>
+<body>
+
+<div class="clock-wrap">
+  <div class="clock" id="clock">
+    <div class="clock-row">
+      <div class="group" id="hours"></div>
+      <div class="colon">:</div>
+      <div class="group" id="minutes"></div>
+      <!-- <div class="colon">:</div>
+      <div class="group" id="seconds"></div> -->
+    </div>
+    <div class="ampm" id="ampm">PM</div>
+  </div>
+  <div class="date" id="date">—</div>
+</div>
+
+<script>
+  const USE_24H = false; // set true to hide the AM/PM badge and use 24h hours
+
+  function pad(n){ return n.toString().padStart(2, '0'); }
+
+  function buildDigitCard(container){
+    const flip = document.createElement('div');
+    flip.className = 'flip';
+
+    const inner = document.createElement('div');
+    inner.className = 'flip-inner';
+
+    const front = document.createElement('div');
+    front.className = 'face front';
+    const frontVal = document.createElement('span');
+    frontVal.className = 'val';
+    frontVal.textContent = '0';
+    front.appendChild(frontVal);
+
+    const back = document.createElement('div');
+    back.className = 'face back';
+    const backVal = document.createElement('span');
+    backVal.className = 'val';
+    backVal.textContent = '0';
+    back.appendChild(backVal);
+
+    inner.appendChild(front);
+    inner.appendChild(back);
+    flip.appendChild(inner);
+    container.appendChild(flip);
+
+    return { flip, inner, frontVal, backVal, current: '0' };
+  }
+
+  function makeDigitPair(containerId){
+    const container = document.getElementById(containerId);
+    return [buildDigitCard(container), buildDigitCard(container)];
+  }
+
+  const hourDigits = makeDigitPair('hours');
+  const minuteDigits = makeDigitPair('minutes');
+  //const secondDigits = makeDigitPair('seconds');
+
+  function setDigit(digit, newVal){
+    if (digit.current === newVal) return;
+
+    digit.backVal.textContent = newVal;
+
+    digit.flip.classList.remove('flipping');
+    void digit.flip.offsetWidth; // reflow, restarts the CSS animation
+    digit.flip.classList.add('flipping');
+
+    setTimeout(() => {
+      digit.frontVal.textContent = newVal;
+      digit.flip.classList.remove('flipping');
+    }, 500);
+
+    digit.current = newVal;
+  }
+
+  function updateClock(){
+    const now = new Date();
+    let h = now.getHours();
+    const ampmLabel = h >= 12 ? 'PM' : 'AM';
+
+    if (!USE_24H) {
+      h = h % 12;
+      if (h === 0) h = 12;
+    }
+
+    const hh = pad(h);
+    const mm = pad(now.getMinutes());
+    //const ss = pad(now.getSeconds());
+
+    setDigit(hourDigits[0], hh[0]);
+    setDigit(hourDigits[1], hh[1]);
+    setDigit(minuteDigits[0], mm[0]);
+    setDigit(minuteDigits[1], mm[1]);
+    //setDigit(secondDigits[0], ss[0]);
+    //setDigit(secondDigits[1], ss[1]);
+
+    const ampmEl = document.getElementById('ampm');
+    ampmEl.style.display = USE_24H ? 'none' : 'block';
+    ampmEl.textContent = ampmLabel;
+
+    const dateOpts = { weekday: 'short', month: 'short', day: 'numeric' };
+    document.getElementById('date').textContent = now.toLocaleDateString('en-US', dateOpts);
+  }
+
+  updateClock();
+  setInterval(updateClock, 1000);
+</script>
+
+</body>
+</html>
