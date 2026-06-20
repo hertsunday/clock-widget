@@ -18,6 +18,7 @@
     --glyph-offset-y: 0.12em;
 
     /* light theme: white digits on pink squares */
+    --bg: #FFFFFF;
     --card: #FFC2D1;
     --text: #2B0F1A;
     --date: #FF4B91;
@@ -26,6 +27,7 @@
   @media (prefers-color-scheme: dark) {
     :root{
       /* dark theme: dark squares with pink digits */
+      --bg: #191919;
       --card: #4A1535;
       --text: #FFE5EC;
       --date: #FF007F;
@@ -38,8 +40,7 @@
     margin: 0;
     padding: 0;
     height: 100%;
-    background: transparent !important;
-    background-color: transparent !important;
+    background: var(--bg);
     font-family: var(--font-pixel);
   }
 
